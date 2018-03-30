@@ -1,13 +1,16 @@
 package com.packt.APT;
 
+import com.mongodb.client.FindIterable;
+import org.bson.Document;
+
 import java.io.*;
 import java.util.*;
 
-/**
- * Hello world!
- */
 public class Indexer {
     private static Map<String, Boolean> isStopWord;
+    private static dbConnector db;
+    private static Stem stemmer;
+    private static Map<String, Content> terms = new HashMap<String, Content>();
 
     private static void readStopWords() throws IOException {
         isStopWord = new HashMap<String, Boolean>();
@@ -23,58 +26,71 @@ public class Indexer {
 
         br.close();
     }
-
-    /*
-    take the output from crawler and iterate on every word and if it isn't stop word stem it
-    when you finish iterate on every word and push it into database
-    */
-    class Content
-    {
-        int last = -1;
-        public Set<String> urls = new HashSet<String>();
-        public ArrayList<ArrayList<Integer>> pos = new ArrayList<ArrayList<Integer>>();
-        public ArrayList<ArrayList<Integer>> tags = new ArrayList<ArrayList<Integer>>();
-        public ArrayList<Integer> curPos;
-        public ArrayList<Integer> curTags;
-        public void add(String url , int idx , int p , int t) {
-            if(last != idx)
-            {
-                if(last != -1)
+    private static void extractWords(String url, ArrayList<String> texts, ArrayList<Integer> tags , int idx) {
+        int id = db.getLinkID(url);
+        int wordIdx = 0;
+        for (int i = 0; i < texts.size(); ++i) {
+            String[] words = texts.get(i).split(" ");
+            int tag = tags.get(i);
+            int len = words.length;
+            for (int j = 0; j < len; ++j) {
+                String cur = words[j].trim();
+                if (isStopWord.containsKey(cur) || cur.length() < 2) continue;
+                cur = stemmer.stemWord(cur.toLowerCase());
+                Content curContent = terms.get(cur);
+                if(curContent == null)
                 {
-                    pos.add(curPos);
-                    tags.add(curTags);
+                    curContent = new Content();
+                   // System.out.println(cur);
                 }
-                urls.add(url);
-                curPos = new ArrayList<Integer>();
-                curTags = new ArrayList<Integer>();
-                last = idx;
+                curContent.add(id , idx , wordIdx++ , tag);
+                terms.put(cur , curContent);
             }
-            curPos.add(p);
-            curTags.add(t);
         }
     }
-    private static void index( ArrayList<String> urls, ArrayList<ArrayList<String>> data  , ArrayList<ArrayList<Integer>> tags ,dbConnector db , Stem stemmer) {
-        Map<String , Content>terms = new HashMap<String, Content>();
-        /*
-        loop on the text from crawler
-         */
 
+    private static void index() {
+        terms.clear();
 
-
-        /*************/
-        for(Map.Entry<String , Content> term : terms.entrySet())
-        {
-            Content c = term.getValue();
-            db.insertTerm(term.getKey() , c.urls , c.pos , c.tags);
+        FindIterable<Document> iterDoc = db.getToBeIndexed();
+        int idx = 0;
+        for (Document doc : iterDoc) {
+            String url = doc.getString("url");
+            ArrayList<String> texts = (ArrayList<String>) doc.get("url_data");
+            ArrayList<Integer> tags = (ArrayList<Integer>) doc.get("tags");
+            extractWords(url , texts , tags , idx);
+            idx++;
+           // System.out.println(idx);
+            System.out.println(idx);
         }
+        db.updateToIndex();
+        /*************/
+        int siz = terms.size();
+        for (Map.Entry<String, Content> term : terms.entrySet()) {
+            Content c = term.getValue();
+            c.addLast();
+            db.insertTerm(term.getKey(), c.urls, c.pos, c.tags);
+            System.out.println(siz--);
+        }
+
     }
 
     public static void main(String[] args) throws IOException {
         readStopWords();
-        dbConnector db = new dbConnector();
-        Stem stemmer = new Stem();
-        //db.clean();
-        //db.printDocs();
-        db.close();
+        db = new dbConnector();
+        db.printTerms();
+        stemmer = new Stem();
+        while (true)
+        {
+            try {
+                index();
+                db.printTerms();
+                System.out.println("finished");
+                Thread.sleep(1000*60*2);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+        }
     }
 }

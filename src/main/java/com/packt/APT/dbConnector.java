@@ -51,7 +51,7 @@ public class dbConnector {
         terms = database.getCollection("words");
         documents = database.getCollection("documents");
         links = database.getCollection("links");
-        clean();
+       // clean();
         readLinks();
     }
 
@@ -72,9 +72,9 @@ public class dbConnector {
             terms.insertOne(page);
         }
         else {
-            List<String> docs = (List<String>) cur.get("urls");
+            List<Integer> docs = (List<Integer>) cur.get("urls");
 
-            for (String doc : docs) {
+            for (int doc : docs) {
                 if(!urls.contains(doc))
                 {
 
@@ -162,7 +162,7 @@ public class dbConnector {
 
     public  FindIterable<Document> getToBeIndexed()
     {
-        FindIterable<Document> iterDoc  = documents.find(new BasicDBObject("to_index", 1));
+        FindIterable<Document> iterDoc  = documents.find(new BasicDBObject("to_index", 0));
         return  iterDoc;
     }
     public void updateToIndex()
