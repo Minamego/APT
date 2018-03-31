@@ -6,7 +6,7 @@ import java.util.Set;
 
 public class Content {
     public int last = -1;
-    public Set<Integer> urls = new HashSet<Integer>();
+    public ArrayList<Integer> urls = new ArrayList<Integer>();
     public ArrayList<ArrayList<Integer>> pos = new ArrayList<ArrayList<Integer>>();
     public ArrayList<ArrayList<Integer>> tags = new ArrayList<ArrayList<Integer>>();
     public ArrayList<Integer> curPos;
@@ -35,5 +35,6 @@ public class Content {
             pos.add(curPos);
             tags.add(curTags);
         }
+
     }
 }

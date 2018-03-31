@@ -12,6 +12,7 @@ public class Indexer {
     private static Stem stemmer;
     private static Map<String, Content> terms = new HashMap<String, Content>();
 
+    // read stop stop words from file
     private static void readStopWords() throws IOException {
         isStopWord = new HashMap<String, Boolean>();
 
@@ -21,11 +22,12 @@ public class Indexer {
         String word;
         while ((word = br.readLine()) != null) {
             isStopWord.put(word, true);
-            //System.out.println ('"' + word + '"'+',');
         }
 
         br.close();
     }
+
+    // extract all words from a url and save all of their data, positions , tags
     private static void extractWords(String url, ArrayList<String> texts, ArrayList<Integer> tags , int idx) {
         int id = db.getLinkID(url);
         int wordIdx = 0;
@@ -36,12 +38,12 @@ public class Indexer {
             for (int j = 0; j < len; ++j) {
                 String cur = words[j].trim();
                 if (isStopWord.containsKey(cur) || cur.length() < 2) continue;
-                cur = stemmer.stemWord(cur.toLowerCase());
+                cur = stemmer.stemWord(cur.toLowerCase());  // stem the word to its origin
                 Content curContent = terms.get(cur);
                 if(curContent == null)
                 {
                     curContent = new Content();
-                   // System.out.println(cur);
+                    // System.out.println(cur);
                 }
                 curContent.add(id , idx , wordIdx++ , tag);
                 terms.put(cur , curContent);
@@ -49,18 +51,20 @@ public class Indexer {
         }
     }
 
+    // read all the documents that should be indexed and extract data from them then add them in special format to the database
     private static void index() {
         terms.clear();
 
         FindIterable<Document> iterDoc = db.getToBeIndexed();
+        ArrayList<Integer> totUrls = new ArrayList<Integer>();
         int idx = 0;
         for (Document doc : iterDoc) {
             String url = doc.getString("url");
             ArrayList<String> texts = (ArrayList<String>) doc.get("url_data");
             ArrayList<Integer> tags = (ArrayList<Integer>) doc.get("tags");
             extractWords(url , texts , tags , idx);
+            totUrls.add(db.getLinkID(url));
             idx++;
-           // System.out.println(idx);
             System.out.println(idx);
         }
         db.updateToIndex();
@@ -69,7 +73,9 @@ public class Indexer {
         for (Map.Entry<String, Content> term : terms.entrySet()) {
             Content c = term.getValue();
             c.addLast();
-            db.insertTerm(term.getKey(), c.urls, c.pos, c.tags);
+            System.out.println("start");
+            db.addTermUpdate(term.getKey(), c.urls ,totUrls , c.pos, c.tags);
+            System.out.println("finish");
             System.out.println(siz--);
         }
 
@@ -84,9 +90,8 @@ public class Indexer {
         {
             try {
                 index();
-                db.printTerms();
                 System.out.println("finished");
-                Thread.sleep(1000*60*2);
+                Thread.sleep(1000*60);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

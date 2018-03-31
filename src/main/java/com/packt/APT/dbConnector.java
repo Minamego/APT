@@ -7,13 +7,13 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
-
+import com.mongodb.client.model.InsertOneModel;
+import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
+import com.mongodb.client.model.WriteModel;
 import org.bson.Document;
-
-import javax.print.Doc;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
 import java.util.*;
 
 public class dbConnector {
@@ -24,6 +24,9 @@ public class dbConnector {
     MongoCollection<Document> links;
     private  Map<String , Integer> linksID;
     private  int maxLinkID;
+    List<WriteModel<Document>> termsUpdates = new ArrayList<WriteModel<Document>>();
+    List<WriteModel<Document>> linksUpdates = new ArrayList<WriteModel<Document>>();
+
     private boolean collectionExists( String collectionName , MongoIterable<String> collectionNames) {
 
         for (final String name : collectionNames) {
@@ -51,67 +54,65 @@ public class dbConnector {
         terms = database.getCollection("words");
         documents = database.getCollection("documents");
         links = database.getCollection("links");
-       // clean();
+        clean();
         readLinks();
     }
 
+    // clean database
     public void clean() {
         terms.deleteMany(new Document());
         links.deleteMany(new Document());
     }
-
-    public void insertTerm(String term , Set<Integer> urls, ArrayList<ArrayList<Integer>> pos , ArrayList<ArrayList<Integer>> tags) {
-
+    // add all data of a specific term to the database
+    public void addTermUpdate(String term , ArrayList<Integer> goodUrls , ArrayList<Integer> totUrls , ArrayList<ArrayList<Integer>> pos , ArrayList<ArrayList<Integer>> tags)
+    {
         Document page = new Document();
-        BasicDBObject updateQueryAppendToArray;
-
-        Document cur = terms.find(new Document("term", term)).first();
-        if(cur == null)
+        BasicDBObject updateQuery;
+        BasicDBObject updateObject = new BasicDBObject("term", term);
+        termsUpdates.add(
+                new UpdateOneModel<Document>(
+                        updateObject, // filter
+                        new Document("$set", new Document("term", term)),  // update
+                        new UpdateOptions().upsert(true)  // options like upsert
+                )
+        );
+        for(int url : totUrls)
         {
-            page = new Document("term", term);
-            terms.insertOne(page);
+            updateQuery = new BasicDBObject();
+            updateQuery.put("$unset", new BasicDBObject().append("details." + url, page));
+            termsUpdates.add(
+                    new UpdateOneModel<Document>(
+                            updateObject, // filter
+                            updateQuery  // update
+                    )
+            );
         }
-        else {
-            List<Integer> docs = (List<Integer>) cur.get("urls");
-
-            for (int doc : docs) {
-                if(!urls.contains(doc))
-                {
-
-                    updateQueryAppendToArray = new BasicDBObject();
-                    updateQueryAppendToArray.put("$pull", new BasicDBObject().append("urls", doc));
-                    updateQueryAppendToArray.put("$unset", new BasicDBObject().append("details." + doc, page));
-
-                    // apply the update to the database
-                    BasicDBObject updateQuery = new BasicDBObject("term", term);
-                    terms.updateOne(updateQuery, updateQueryAppendToArray);
-                }
-            }
-        }
-        int i = 0;
-        for(int url : urls)
+        for(int i = 0 ; i<goodUrls.size() ; ++i)
         {
-            // loop on each url
+            int url = goodUrls.get(i);
             page = new Document("positions", pos.get(i)).append("tag", tags.get(i));
-            // update url
-            updateQueryAppendToArray = new BasicDBObject();
-            updateQueryAppendToArray.put("$addToSet", new BasicDBObject().append("urls", url));
-            updateQueryAppendToArray.put("$set", new BasicDBObject().append("details." + url, page));
-
-            // apply the update to the database
-            BasicDBObject updateQuery = new BasicDBObject("term", term);
-            try {
-                terms.updateOne(updateQuery, updateQueryAppendToArray);
-            }
-            catch (MongoWriteException e)
-            {
-                System.out.println(url);
-            }
-            i++;
+            updateQuery = new BasicDBObject();
+            updateQuery.put("$set", new BasicDBObject().append("details." + url, page));
+            termsUpdates.add(
+                    new UpdateOneModel<Document>(
+                            updateObject, // filter
+                            updateQuery  // update
+                    )
+            );
         }
-
+        applyUpdates();
     }
 
+    // apply all the current updates to the databae
+    public  void  applyUpdates()
+    {
+        if(!termsUpdates.isEmpty()) terms.bulkWrite(termsUpdates);
+        if(!linksUpdates.isEmpty()) links.bulkWrite(linksUpdates);
+        termsUpdates.clear();
+        linksUpdates.clear();
+    }
+
+    // read links id from database
     public void readLinks()
     {
         linksID = new HashMap<String, Integer>();
@@ -124,12 +125,18 @@ public class dbConnector {
             maxLinkID = Math.max(id , maxLinkID);
         }
     }
+
+    // add link to database
     public void addLink(String url)
     {
         maxLinkID++;
         Document page = new Document("url", url)
                 .append("id" , maxLinkID);
-        links.insertOne(page);
+        linksUpdates.add(
+                new InsertOneModel<Document>(
+                        page
+                )
+        );
         linksID.put(url , maxLinkID);
     }
     public int getLinkID(String url)
@@ -159,12 +166,14 @@ public class dbConnector {
     }
 
 
-
+    // get all documents that should be indexed from database
     public  FindIterable<Document> getToBeIndexed()
     {
-        FindIterable<Document> iterDoc  = documents.find(new BasicDBObject("to_index", 0));
+        FindIterable<Document> iterDoc  = documents.find(new BasicDBObject("to_index", 1));
         return  iterDoc;
     }
+
+    // reset the indexed documents index flag to zero
     public void updateToIndex()
     {
         FindIterable<Document> iterDoc  = documents.find(new BasicDBObject("to_index", 1));
@@ -179,9 +188,5 @@ public class dbConnector {
             documents.updateOne(updateObject, updateQuery);
         }
 
-    }
-
-    public void close() {
-        mongoClient.close();
     }
 }
