@@ -180,13 +180,19 @@ public class dbConnector {
 
         BasicDBObject updateQuery = new BasicDBObject();
         updateQuery.put("$set", new BasicDBObject().append("to_index", 0));
-
+        List<WriteModel<Document>> updates = new ArrayList<WriteModel<Document>>();
         // apply the update to the database
         for(Document doc : iterDoc)
         {
             BasicDBObject updateObject = new BasicDBObject("url", doc.get("url"));
-            documents.updateOne(updateObject, updateQuery);
+            updates.add(
+                    new UpdateOneModel<Document>(
+                            updateObject, // filter
+                            updateQuery  // update
+                    )
+            );
         }
+        if(!updates.isEmpty()) documents.bulkWrite(updates);
 
     }
 }
