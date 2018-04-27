@@ -1,4 +1,4 @@
-package com.packt.APT;
+package cIndexer;
 
 import com.mongodb.client.FindIterable;
 import org.bson.Document;
@@ -16,7 +16,7 @@ public class Indexer {
     private static void readStopWords() throws IOException {
         isStopWord = new HashMap<String, Boolean>();
 
-        FileInputStream file = new FileInputStream("/home/mina/IdeaProjects/APT/src/main/java/com/packt/APT/stopwords.txt");
+        FileInputStream file = new FileInputStream("/home/mina/IdeaProjects/Indexer/src/main/java/cIndexer/stopwords.txt");
         BufferedReader br = new BufferedReader(new InputStreamReader(file));
 
         String word;
@@ -36,14 +36,22 @@ public class Indexer {
             int tag = tags.get(i);
             int len = words.length;
             for (int j = 0; j < len; ++j) {
-                String cur = words[j].trim();
+                String cur = words[j].trim().toLowerCase();
                 if (isStopWord.containsKey(cur) || cur.length() < 2) continue;
-                cur = stemmer.stemWord(cur.toLowerCase());  // stem the word to its origin
                 Content curContent = terms.get(cur);
                 if(curContent == null)
                 {
                     curContent = new Content();
-                    // System.out.println(cur);
+                }
+                curContent.add(id , idx , wordIdx++ , tag);
+                terms.put(cur , curContent);
+                String afterStem = stemmer.stemWord(cur);  // stem the word to its origin
+                if(afterStem == cur) continue;
+                cur = afterStem;
+                curContent = terms.get(cur);
+                if(curContent == null)
+                {
+                    curContent = new Content();
                 }
                 curContent.add(id , idx , wordIdx++ , tag);
                 terms.put(cur , curContent);
@@ -84,7 +92,6 @@ public class Indexer {
     public static void main(String[] args) throws IOException {
         readStopWords();
         db = new dbConnector();
-        db.printTerms();
         stemmer = new Stem();
         while (true)
         {
@@ -95,7 +102,8 @@ public class Indexer {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-
+            break;
         }
+
     }
 }

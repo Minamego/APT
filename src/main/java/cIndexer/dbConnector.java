@@ -1,8 +1,7 @@
-package com.packt.APT;
+package cIndexer;
 
 import com.mongodb.BasicDBObject;
 import com.mongodb.MongoClient;
-import com.mongodb.MongoWriteException;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
@@ -163,6 +162,7 @@ public class dbConnector {
             writer.println(it.next());
         }
         writer.close();
+
     }
 
 

@@ -7,10 +7,12 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="APT" />
+        <module name="Indexer" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
-      <module name="APT" target="1.5" />
+      <module name="APT" target="1.7" />
+      <module name="Indexer" target="1.7" />
     </bytecodeTargetLevel>
   </component>
 </project>

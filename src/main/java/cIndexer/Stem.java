@@ -1,4 +1,4 @@
-package com.packt.APT;
+package cIndexer;
 import stem.*;
 import stem.ext.englishStemmer;
 
