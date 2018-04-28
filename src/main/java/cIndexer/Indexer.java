@@ -103,7 +103,6 @@ public class Indexer {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            break;
         }
 
     }
