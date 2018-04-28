@@ -53,7 +53,7 @@ public class dbConnector {
         terms = database.getCollection("words");
         documents = database.getCollection("documents");
         links = database.getCollection("links");
-        clean();
+         clean();
         readLinks();
     }
 

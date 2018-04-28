@@ -36,6 +36,7 @@ public class Indexer {
             int tag = tags.get(i);
             int len = words.length;
             for (int j = 0; j < len; ++j) {
+                wordIdx++;
                 String cur = words[j].trim().toLowerCase();
                 if (isStopWord.containsKey(cur) || cur.length() < 2) continue;
                 Content curContent = terms.get(cur);
@@ -43,7 +44,7 @@ public class Indexer {
                 {
                     curContent = new Content();
                 }
-                curContent.add(id , idx , wordIdx++ , tag);
+                curContent.add(id , idx , wordIdx , tag);
                 terms.put(cur , curContent);
                 String afterStem = stemmer.stemWord(cur);  // stem the word to its origin
                 if(afterStem == cur) continue;
@@ -53,7 +54,7 @@ public class Indexer {
                 {
                     curContent = new Content();
                 }
-                curContent.add(id , idx , wordIdx++ , tag);
+                curContent.add(id , idx , wordIdx , tag);
                 terms.put(cur , curContent);
             }
         }
